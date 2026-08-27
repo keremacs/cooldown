@@ -1,4 +1,5 @@
 mod analytics;
+mod autostart;
 mod benchmark;
 mod db;
 mod fatigue;
@@ -70,6 +71,13 @@ fn set_retention_days(state: State<'_, Arc<AppState>>, days: u32) {
 }
 
 #[tauri::command]
+fn set_autostart(app: AppHandle, state: State<'_, Arc<AppState>>, enabled: bool) -> Result<(), String> {
+    state.db.set_autostart_enabled(enabled);
+    autostart::sync_autostart(&app, enabled);
+    Ok(())
+}
+
+#[tauri::command]
 fn get_trend(state: State<'_, Arc<AppState>>, period: String) -> Vec<models::TrendBucket> {
     let p = if period == "monthly" {
         TrendPeriod::Monthly
@@ -128,6 +136,10 @@ fn start_background_services(app: &AppHandle, state: Arc<AppState>) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![autostart::BACKGROUND_ARG]),
+        ))
         .on_window_event(|window, event| {
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -143,6 +155,12 @@ pub fn run() {
                 if let Some(b) = db.compute_baseline_from_history() {
                     db.update_baseline(&b);
                 }
+            }
+
+            autostart::sync_autostart(app.handle(), db.autostart_enabled());
+
+            if autostart::launched_in_background() {
+                autostart::hide_main_window(app.handle());
             }
 
             let plugins = Arc::new(PluginRegistry::new());
@@ -163,6 +181,7 @@ pub fn run() {
             set_focus_mode,
             set_theme,
             set_retention_days,
+            set_autostart,
             get_trend,
             toggle_widget,
         ])

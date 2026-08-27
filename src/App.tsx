@@ -29,6 +29,7 @@ function Dashboard() {
     saveJournal,
     setFocusMode,
     setRetentionDays,
+    setAutostart,
   } = useCooldownState();
 
   useEffect(() => {
@@ -77,6 +78,7 @@ function Dashboard() {
             state={state}
             onFocusMode={setFocusMode}
             onRetention={setRetentionDays}
+            onAutostart={setAutostart}
           />
         )}
       </main>

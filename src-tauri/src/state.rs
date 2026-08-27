@@ -115,17 +115,25 @@ impl AppState {
 
         inner.tracking_paused = false;
         let category = AppCategory::classify(&title, &app_name);
+        let window_changed = inner.current_window != title;
+        let app_changed = inner.current_app != app_name;
+        let category_changed = inner.current_category != category;
 
-        if inner.current_window != title || inner.current_app != app_name {
-            if inner.current_window != title {
-                inner.window_switches.push_back(Instant::now());
-                prune_old(&mut inner.window_switches, SWITCH_WINDOW);
-            }
+        if window_changed {
+            inner.window_switches.push_back(Instant::now());
+            prune_old(&mut inner.window_switches, SWITCH_WINDOW);
+        }
+
+        if window_changed || app_changed {
             inner.current_window = title;
             inner.current_app = app_name;
-            inner.current_category = category;
+        }
+
+        if window_changed || app_changed || category_changed {
             inner.category_since = Instant::now();
         }
+
+        inner.current_category = category;
 
         Self::recompute(&mut inner, &self.db);
         self.db.upsert_screen_time(
@@ -273,6 +281,7 @@ impl AppState {
             plugins: self.plugins.list(),
             theme: self.db.theme(),
             retention_days: self.db.retention_days(),
+            autostart_enabled: self.db.autostart_enabled(),
         }
     }
 

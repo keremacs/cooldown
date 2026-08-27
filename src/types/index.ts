@@ -115,6 +115,7 @@ export interface DashboardState {
   plugins: PluginInfo[];
   theme: string;
   retention_days: number;
+  autostart_enabled: boolean;
 }
 
 export interface DevEvent {

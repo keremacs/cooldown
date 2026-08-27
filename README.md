@@ -24,6 +24,7 @@ Local-first cognitive load and burnout tracking for developers.
 | Plugin registry (vscode/terminal/powershell) | Settings |
 | Benchmark mode (memory/CPU/uptime) | Settings |
 | Screen lock detection | Backend (Windows + macOS) |
+| Autostart at login | Settings (enabled by default) |
 | PowerShell hook | `integrations/shell/cooldown-hook.ps1` |
 
 ## Quick Start

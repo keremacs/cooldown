@@ -36,43 +36,34 @@ fn window_loop(state: Arc<AppState>) {
 
 #[cfg(not(target_os = "windows"))]
 fn poll_loop(state: Arc<AppState>) {
-    let mut last = (String::new(), String::new());
     loop {
         if let Ok(win) = active_win_pos_rs::get_active_window() {
             let title = win.title.clone();
             let app = normalize_app_name(&win.app_name);
-            let key = (title.clone(), app.clone());
-            if key != last {
-                last = key;
-                state.record_window_change(title, app);
-            }
+            state.record_window_change(title, app);
+        } else {
+            state.tick_screen_time();
         }
-        state.tick_screen_time();
         std::thread::sleep(POLL_INTERVAL);
     }
 }
 
-#[cfg(not(target_os = "windows"))]
 fn normalize_app_name(raw: &str) -> String {
     raw.rsplit(['/', '\\'])
         .next()
         .unwrap_or(raw)
-        .trim_end_matches(".app")
+        .trim()
         .to_string()
 }
 
 #[cfg(target_os = "windows")]
 fn poll_loop(state: Arc<AppState>) {
-    let mut last = (String::new(), String::new());
     loop {
         if let Some((title, app)) = read_foreground_window() {
-            let key = (title.clone(), app.clone());
-            if key != last {
-                last = key;
-                state.record_window_change(title, app);
-            }
+            state.record_window_change(title, app);
+        } else {
+            state.tick_screen_time();
         }
-        state.tick_screen_time();
         std::thread::sleep(POLL_INTERVAL);
     }
 }
@@ -140,7 +131,12 @@ fn windows_hook_loop(state: &Arc<AppState>) -> Result<(), ()> {
             }
         }
 
-        state.tick_screen_time();
+        // Periodic refresh even without focus events — keeps screen time accruing.
+        if let Some((title, app)) = read_foreground_window() {
+            state.record_window_change(title, app);
+        } else {
+            state.tick_screen_time();
+        }
 
         unsafe {
             let mut msg = MSG::default();
@@ -171,7 +167,7 @@ fn read_foreground_window() -> Option<(String, String)> {
         let mut pid = 0u32;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
 
-        let app = process_name(pid).unwrap_or_else(|| "unknown".to_string());
+        let app = process_name(pid).map(|n| normalize_app_name(&n)).unwrap_or_else(|| "unknown".to_string());
         Some((title, app))
     }
 }

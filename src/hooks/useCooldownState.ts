@@ -35,6 +35,7 @@ const DEFAULT: DashboardState = {
   plugins: [],
   theme: "dark",
   retention_days: 90,
+  autostart_enabled: true,
 };
 
 export function useCooldownState() {
@@ -118,6 +119,14 @@ export function useCooldownState() {
     [refresh],
   );
 
+  const setAutostart = useCallback(
+    async (enabled: boolean) => {
+      await invoke("set_autostart", { enabled });
+      refresh();
+    },
+    [refresh],
+  );
+
   return {
     state,
     events,
@@ -129,6 +138,7 @@ export function useCooldownState() {
     saveJournal,
     setFocusMode,
     setRetentionDays,
+    setAutostart,
     refresh,
     loadJournal,
   };

@@ -5,9 +5,10 @@ interface SettingsTabProps {
   state: DashboardState;
   onFocusMode: (active: boolean, duration?: number) => void;
   onRetention: (days: number) => void;
+  onAutostart: (enabled: boolean) => void;
 }
 
-export function SettingsTab({ state, onFocusMode, onRetention }: SettingsTabProps) {
+export function SettingsTab({ state, onFocusMode, onRetention, onAutostart }: SettingsTabProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -62,6 +63,23 @@ export function SettingsTab({ state, onFocusMode, onRetention }: SettingsTabProp
         >
           Switch to {theme === "dark" ? "Light" : "Dark"} Mode
         </button>
+      </section>
+
+      {/* Autostart */}
+      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <h3 className="text-sm font-medium mb-1">Start at Login</h3>
+        <p className="text-xs text-[var(--text-muted)] mb-3">
+          Launch Cooldown in the background when you sign in. Only the tray icon appears until you open the app.
+        </p>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={state.autostart_enabled}
+            onChange={(e) => onAutostart(e.target.checked)}
+            className="h-4 w-4 rounded border-[var(--border)] accent-indigo-500"
+          />
+          <span className="text-sm">Start automatically at login</span>
+        </label>
       </section>
 
       {/* Retention */}

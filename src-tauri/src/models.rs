@@ -122,70 +122,71 @@ pub enum AppCategory {
 
 impl AppCategory {
     pub fn classify(title: &str, app_name: &str) -> Self {
-        let app = app_name.to_lowercase();
+        let stem = process_stem(app_name);
         let haystack = format!("{} {}", title, app_name).to_lowercase();
 
-        // Match process / bundle name first (reliable on Windows .exe and macOS .app).
-        const IDE_EXES: &[&str] = &[
-            "code.exe", "cursor.exe", "devenv.exe", "idea64.exe", "idea.exe",
-            "webstorm64.exe", "webstorm.exe", "pycharm64.exe", "pycharm.exe",
-            "goland64.exe", "goland.exe", "rider64.exe", "rider.exe",
-            "windowsterminal.exe", "wt.exe", "powershell.exe", "pwsh.exe", "cmd.exe",
-            "sublime_text.exe", "notepad++.exe",
-            // macOS process / bundle names
-            "code.app", "cursor.app", "visual studio code.app", "xcode.app",
-            "terminal.app", "iterm2.app", "iterm.app", "warp.app", "alacritty.app",
-            "kitty.app", "ghostty.app", "wezterm.app", "hyper.app", "tabby.app",
-            "sublime text.app", "nova.app", "bbedit.app", "zed.app",
-            "datagrip.app", "pycharm.app", "webstorm.app", "goland.app", "rider.app",
-            "intellij idea.app", "android studio.app", "fleet.app",
-            // macOS process names (without .app suffix)
-            "code", "cursor", "xcode", "terminal", "iterm2", "iterm", "warp",
-            "alacritty", "kitty", "ghostty", "wezterm", "hyper", "tabby", "zed", "nova",
+        // UWP / shell hosts expose the real app in the window title, not the process name.
+        const UWP_HOSTS: &[&str] = &[
+            "applicationframehost", "dllhost", "systemsettings", "shellexperiencehost",
+            "searchhost", "startmenuexperiencehost", "textinputhost", "widgetservice",
         ];
-        const BROWSER_EXES: &[&str] = &[
-            "chrome.exe", "firefox.exe", "msedge.exe", "brave.exe", "opera.exe",
-            "vivaldi.exe", "iexplore.exe",
-            "google chrome.app", "firefox.app", "safari.app", "brave browser.app",
-            "microsoft edge.app", "opera.app", "arc.app", "vivaldi.app", "orion.app",
-            "chrome", "firefox", "safari", "brave browser", "microsoft edge", "arc",
-        ];
-        const COMM_EXES: &[&str] = &[
-            "slack.exe", "discord.exe", "teams.exe", "ms-teams.exe", "zoom.exe",
-            "outlook.exe", "telegram.exe", "whatsapp.exe", "signal.exe", "skype.exe",
-            "slack.app", "discord.app", "microsoft teams.app", "teams.app", "zoom.app",
-            "outlook.app", "mail.app", "messages.app", "telegram.app", "whatsapp.app",
-            "signal.app", "skype.app", "facetime.app",
-        ];
+        let use_title_only = UWP_HOSTS.contains(&stem.as_str()) || stem == "unknown";
 
-        if matches_process(&app, IDE_EXES) {
-            return Self::Ide;
-        }
-        if matches_process(&app, BROWSER_EXES) {
-            return Self::Browser;
-        }
-        if matches_process(&app, COMM_EXES) {
-            return Self::Communication;
+        if !use_title_only {
+            const IDE_PROCESSES: &[&str] = &[
+                "code", "cursor", "devenv", "idea64", "idea", "webstorm64", "webstorm",
+                "pycharm64", "pycharm", "goland64", "goland", "rider64", "rider",
+                "windowsterminal", "wt", "powershell", "pwsh", "cmd", "sublime_text",
+                "notepad++", "xcode", "terminal", "iterm2", "iterm", "warp", "alacritty",
+                "kitty", "ghostty", "wezterm", "hyper", "tabby", "sublime text", "nova",
+                "bbedit", "zed", "datagrip", "intellij", "android studio", "fleet",
+                "vscodium", "neovide", "lapce",
+            ];
+            const BROWSER_PROCESSES: &[&str] = &[
+                "chrome", "firefox", "msedge", "msedgewebview2", "brave", "opera",
+                "vivaldi", "iexplore", "safari", "arc", "orion", "waterfox", "librewolf",
+            ];
+            const COMM_PROCESSES: &[&str] = &[
+                "slack", "discord", "teams", "ms-teams", "zoom", "outlook", "olk",
+                "telegram", "whatsapp", "signal", "skype", "msteams", "commsapps",
+            ];
+
+            if matches_process_stem(&stem, IDE_PROCESSES) {
+                return Self::Ide;
+            }
+            if matches_process_stem(&stem, BROWSER_PROCESSES) {
+                return Self::Browser;
+            }
+            if matches_process_stem(&stem, COMM_PROCESSES) {
+                return Self::Communication;
+            }
         }
 
-        const IDE: &[&str] = &[
-            "visual studio", "jetbrains", "intellij", "neovim", "nvim", "vim", "emacs",
-            "sublime", "zed", "android studio", "xcode", "github copilot",
-            "iterm", "warp", "alacritty", "wezterm",
+        const IDE_TITLES: &[&str] = &[
+            "visual studio code", "vscode", "visual studio", "jetbrains", "intellij",
+            "pycharm", "webstorm", "goland", "rider", "datagrip", "android studio",
+            "neovim", "nvim", "vim", "emacs", "sublime", "zed", "xcode", "github copilot",
+            "iterm", "warp", "alacritty", "wezterm", "windows terminal", "cursor",
+            "vscodium", "neovide", "lapce", "fleet",
         ];
-        const BROWSER: &[&str] = &[
-            "chrome", "firefox", "edge", "safari", "brave", "opera", "vivaldi",
+        const BROWSER_TITLES: &[&str] = &[
+            "google chrome", "mozilla firefox", "microsoft edge", "brave", "opera",
+            "vivaldi", "safari", "arc browser", " - chrome", " - firefox", " - edge",
         ];
-        const COMM: &[&str] = &[
-            "slack", "discord", "teams", "zoom", "outlook", "mail", "telegram",
-            "whatsapp", "signal", "skype",
+        const COMM_TITLES: &[&str] = &[
+            "slack", "discord", "microsoft teams", "ms teams", "zoom", "outlook",
+            "telegram", "whatsapp", "signal", "skype",
         ];
 
-        if IDE.iter().any(|k| haystack.contains(k)) {
+        if IDE_TITLES.iter().any(|k| haystack.contains(k)) {
             Self::Ide
-        } else if BROWSER.iter().any(|k| haystack.contains(k)) {
+        } else if BROWSER_TITLES.iter().any(|k| haystack.contains(k)) {
             Self::Browser
-        } else if COMM.iter().any(|k| haystack.contains(k)) {
+        } else if COMM_TITLES.iter().any(|k| haystack.contains(k)) {
+            Self::Communication
+        } else if matches_keyword(&haystack, &["chrome", "firefox", "edge", "safari", "brave", "opera", "vivaldi"]) {
+            Self::Browser
+        } else if matches_keyword(&haystack, &["teams", "discord", "slack", "zoom", "outlook", "telegram"]) {
             Self::Communication
         } else {
             Self::Other
@@ -193,14 +194,86 @@ impl AppCategory {
     }
 }
 
-fn matches_process(app: &str, patterns: &[&str]) -> bool {
+/// Basename without path or extension, lowercased — e.g. `C:\App\Cursor.exe` → `cursor`.
+fn process_stem(app_name: &str) -> String {
+    let base = app_name
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(app_name)
+        .trim()
+        .to_lowercase();
+    base.strip_suffix(".exe")
+        .or_else(|| base.strip_suffix(".app"))
+        .unwrap_or(&base)
+        .to_string()
+}
+
+fn matches_process_stem(stem: &str, patterns: &[&str]) -> bool {
     patterns.iter().any(|pattern| {
         let pattern = pattern.to_lowercase();
-        app == pattern
-            || app.ends_with(&pattern)
-            || app.ends_with(&format!("/{pattern}"))
-            || app.ends_with(&format!("\\{pattern}"))
+        stem == pattern
     })
+}
+
+/// Word-aware substring match — avoids false positives like "mail" inside unrelated words.
+fn matches_keyword(haystack: &str, keywords: &[&str]) -> bool {
+    keywords.iter().any(|kw| {
+        let kw = kw.to_lowercase();
+        haystack.contains(&kw)
+    })
+}
+
+#[cfg(test)]
+mod app_category_tests {
+    use super::AppCategory;
+
+    #[test]
+    fn classifies_windows_cursor() {
+        assert_eq!(
+            AppCategory::classify("lib.rs - cooldown - Cursor", "Cursor.exe"),
+            AppCategory::Ide
+        );
+    }
+
+    #[test]
+    fn classifies_windows_vscode() {
+        assert_eq!(
+            AppCategory::classify("main.ts - project - Visual Studio Code", "Code.exe"),
+            AppCategory::Ide
+        );
+    }
+
+    #[test]
+    fn classifies_windows_chrome() {
+        assert_eq!(
+            AppCategory::classify("Google - Chrome", "chrome.exe"),
+            AppCategory::Browser
+        );
+    }
+
+    #[test]
+    fn classifies_windows_terminal() {
+        assert_eq!(
+            AppCategory::classify("PowerShell", "WindowsTerminal.exe"),
+            AppCategory::Ide
+        );
+    }
+
+    #[test]
+    fn classifies_uwp_by_title() {
+        assert_eq!(
+            AppCategory::classify("WhatsApp", "ApplicationFrameHost.exe"),
+            AppCategory::Communication
+        );
+    }
+
+    #[test]
+    fn classifies_unknown_process_by_title() {
+        assert_eq!(
+            AppCategory::classify("Inbox - Outlook", "unknown"),
+            AppCategory::Communication
+        );
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -337,6 +410,7 @@ pub struct DashboardState {
     pub plugins: Vec<PluginInfo>,
     pub theme: String,
     pub retention_days: u32,
+    pub autostart_enabled: bool,
 }
 
 /// Payload emitted to the frontend when an HTTP hook delivers a new event.

@@ -131,6 +131,16 @@ impl Database {
         self.set_setting("theme", theme);
     }
 
+    pub fn autostart_enabled(&self) -> bool {
+        self.get_setting("autostart_enabled")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(true)
+    }
+
+    pub fn set_autostart_enabled(&self, enabled: bool) {
+        self.set_setting("autostart_enabled", if enabled { "true" } else { "false" });
+    }
+
     pub fn persist_hourly(
         &self,
         ts: i64,

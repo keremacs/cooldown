@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAccessibilityUsageDescription</key>
+	<string>Cooldown needs Accessibility access to detect which app you are using and estimate cognitive load.</string>
+	<key>NSInputMonitoringUsageDescription</key>
+	<string>Cooldown monitors typing cadence (not content) to calculate your fatigue score.</string>
+</dict>
+</plist>
