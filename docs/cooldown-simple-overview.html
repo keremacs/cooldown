@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cooldown — Simple Overview</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --accent: #6366f1;
+      --accent-soft: #eef2ff;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page { max-width: 720px; margin: 0 auto; padding: 48px 40px; }
+
+    .hero {
+      text-align: center;
+      padding-bottom: 36px;
+      margin-bottom: 36px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4f46e5, #818cf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: white;
+      margin: 0 auto 16px;
+    }
+
+    h1 { font-size: 2rem; font-weight: 800; line-height: 1.25; color: var(--text); margin-bottom: 12px; }
+
+    .subtitle { font-size: 1.125rem; color: var(--muted); max-width: 520px; margin: 0 auto; }
+
+    section { margin-bottom: 36px; }
+
+    h2 { font-size: 1.25rem; font-weight: 700; color: var(--accent); margin-bottom: 14px; }
+
+    p { margin-bottom: 14px; color: #334155; }
+
+    .box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 16px;
+    }
+
+    .box.highlight { background: var(--accent-soft); border-color: #c7d2fe; }
+
+    .steps { list-style: none; }
+
+    .steps li {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps li:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-text strong { display: block; font-size: 1rem; margin-bottom: 4px; color: var(--text); }
+    .step-text span { color: var(--muted); font-size: 0.95rem; }
+
+    .features { list-style: none; display: grid; gap: 12px; }
+
+    .features li {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .features .icon { font-size: 1.5rem; line-height: 1; }
+    .features strong { display: block; margin-bottom: 2px; }
+    .features span { font-size: 0.92rem; color: var(--muted); }
+
+    .score-bar { display: flex; gap: 10px; margin-top: 16px; }
+
+    .score-item { flex: 1; text-align: center; padding: 14px 8px; border-radius: 10px; font-size: 0.85rem; }
+    .score-item.green { background: #dcfce7; color: #166534; }
+    .score-item.yellow { background: #fef3c7; color: #92400e; }
+    .score-item.red { background: #fee2e2; color: #991b1b; }
+    .score-item .label { font-weight: 700; display: block; margin-bottom: 4px; }
+
+    .closing {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: white;
+      border-radius: 16px;
+      padding: 28px 32px;
+      text-align: center;
+    }
+
+    .closing h2 { color: white; margin-bottom: 10px; }
+    .closing p { color: rgba(255,255,255,0.92); margin-bottom: 0; font-size: 1rem; }
+    .closing .tagline { margin-top: 14px; font-weight: 700; font-size: 1.05rem; }
+
+    .footer { margin-top: 32px; text-align: center; font-size: 0.8rem; color: var(--muted); }
+
+    @media print {
+      body { background: white; }
+      .page { padding: 28px 32px; max-width: 100%; }
+      section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="hero">
+      <div class="logo">C</div>
+      <h1>What is Cooldown?</h1>
+      <p class="subtitle">A small desktop app that understands when you're getting tired at the computer — and gently reminds you when it's time for a break.</p>
+    </header>
+
+    <section>
+      <h2>What does it do?</h2>
+      <div class="box highlight">
+        <p style="margin:0;font-size:1.05rem;">
+          Cooldown is built for <strong>developers and anyone who spends long hours at a computer</strong>.
+          While you keep working, it quietly watches in the background — tracking errors, how often you switch apps, and how intensely you're working.
+          Then it gives you a <strong>Fatigue Score from 0 to 100</strong>.
+        </p>
+      </div>
+      <p>As the score rises, it suggests taking a break. The goal isn't to push you harder — it's to <strong>help you stop before you're completely exhausted</strong>.</p>
+    </section>
+
+    <section>
+      <h2>How does it work? (4 steps)</h2>
+      <ul class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <div class="step-text">
+            <strong>It quietly watches your work</strong>
+            <span>It notices coding errors, failed terminal commands, and which apps you spend time in. You don't need to do anything extra.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div class="step-text">
+            <strong>It calculates your fatigue score</strong>
+            <span>It combines the signals into a live score. A low score means you're doing fine; as it climbs, fatigue is building.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div class="step-text">
+            <strong>It keeps data only on your computer</strong>
+            <span>Nothing is sent to the internet. No cloud uploads, no accounts. Everything stays on your device.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <div class="step-text">
+            <strong>It nudges you when needed</strong>
+            <span>A small icon or notification says "A break would help." You can snooze it if you're in the zone.</span>
+          </div>
+        </li>
+      </ul>
+
+      <div class="score-bar">
+        <div class="score-item green">
+          <span class="label">🟢 You're doing great</span>
+          0 – 40
+        </div>
+        <div class="score-item yellow">
+          <span class="label">🟡 Getting tired</span>
+          40 – 75
+        </div>
+        <div class="score-item red">
+          <span class="label">🔴 Break time</span>
+          75 – 100
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>What is it good for?</h2>
+      <ul class="features">
+        <li>
+          <span class="icon">📊</span>
+          <div>
+            <strong>Shows your fatigue score</strong>
+            <span>See how tired you are right now at a glance.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">💻</span>
+          <div>
+            <strong>Connects to your code editor</strong>
+            <span>Automatically detects errors in VS Code and Cursor.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">⌨️</span>
+          <div>
+            <strong>Listens to your terminal</strong>
+            <span>Counts failed commands in PowerShell or Zsh.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">🔒</span>
+          <div>
+            <strong>Respects your privacy</strong>
+            <span>Data stays on your computer. Nothing is shared.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">☕</span>
+          <div>
+            <strong>Reminds you to take breaks</strong>
+            <span>Alerts you when you've been going too long without resting.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">📱</span>
+          <div>
+            <strong>Runs in the background</strong>
+            <span>Lives in your menu bar or system tray. Lightweight and unobtrusive.</span>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Who is it for?</h2>
+      <div class="box">
+        <p style="margin:0;">
+          Built primarily for <strong>software developers</strong> — but anyone who sits at a computer all day can benefit:
+          students, designers, writers, remote workers…
+          If you ever think <em>"I didn't realize how tired I was until it was too late,"</em> Cooldown is for you.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="closing">
+        <h2>In short</h2>
+        <p>Cooldown is a helper app that listens while you work, gently warns you when fatigue builds up, and reminds you to rest. Easy to install, works offline, and your data belongs to you.</p>
+        <p class="tagline">Less burnout. Smarter breaks. Healthier work.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Cooldown · Your local break assistant that listens while you work
+    </footer>
+
+  </div>
+</body>
+</html>
