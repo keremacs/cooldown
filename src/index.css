@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #020617;
+  --surface: rgba(15, 23, 42, 0.5);
+  --surface-2: #0f172a;
+  --border: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #64748b;
+  --chart-grid: #1e293b;
+  --chart-axis: #64748b;
+  --chart-tooltip-bg: #0f172a;
+  --chart-tooltip-border: #334155;
+  --hint-bg: rgba(245, 158, 11, 0.1);
+  --hint-border: rgba(245, 158, 11, 0.4);
+  --hint-text: #fcd34d;
+}
+
+/* Soft light theme — warm gray tones, no pure white */
+:root.light {
+  --bg: #d4dae3;
+  --surface: #e2e7ef;
+  --surface-2: #d8dee8;
+  --border: #b4becd;
+  --text: #3a4556;
+  --text-muted: #6b788c;
+  --chart-grid: #c5ced9;
+  --chart-axis: #6b788c;
+  --chart-tooltip-bg: #e2e7ef;
+  --chart-tooltip-border: #b4becd;
+  --hint-bg: rgba(180, 130, 50, 0.12);
+  --hint-border: rgba(160, 115, 40, 0.35);
+  --hint-text: #8a6914;
+}
+
+@layer base {
+  body {
+    @apply antialiased;
+    background: var(--bg);
+    color: var(--text);
+  }
+}
+
+@layer utilities {
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up { animation: slide-up 0.3s ease-out; }
+
+  .scroll-area {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .scroll-area::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-area::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+}

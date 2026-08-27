@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cooldown — Basit Tanıtım</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --accent: #6366f1;
+      --accent-soft: #eef2ff;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 40px;
+    }
+
+    .hero {
+      text-align: center;
+      padding-bottom: 36px;
+      margin-bottom: 36px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4f46e5, #818cf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: white;
+      margin: 0 auto 16px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.25;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 1.125rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    section { margin-bottom: 36px; }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    p { margin-bottom: 14px; color: #334155; }
+
+    .box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 16px;
+    }
+
+    .box.highlight {
+      background: var(--accent-soft);
+      border-color: #c7d2fe;
+    }
+
+    .steps { list-style: none; }
+
+    .steps li {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps li:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-text strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .step-text span { color: var(--muted); font-size: 0.95rem; }
+
+    .features {
+      list-style: none;
+      display: grid;
+      gap: 12px;
+    }
+
+    .features li {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .features .icon { font-size: 1.5rem; line-height: 1; }
+
+    .features strong { display: block; margin-bottom: 2px; }
+
+    .features span { font-size: 0.92rem; color: var(--muted); }
+
+    .score-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .score-item {
+      flex: 1;
+      text-align: center;
+      padding: 14px 8px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+    }
+
+    .score-item.green { background: #dcfce7; color: #166534; }
+    .score-item.yellow { background: #fef3c7; color: #92400e; }
+    .score-item.red { background: #fee2e2; color: #991b1b; }
+
+    .score-item .label { font-weight: 700; display: block; margin-bottom: 4px; }
+
+    .closing {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: white;
+      border-radius: 16px;
+      padding: 28px 32px;
+      text-align: center;
+    }
+
+    .closing h2 { color: white; margin-bottom: 10px; }
+
+    .closing p {
+      color: rgba(255,255,255,0.92);
+      margin-bottom: 0;
+      font-size: 1rem;
+    }
+
+    .closing .tagline {
+      margin-top: 14px;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    @media print {
+      body { background: white; }
+      .page { padding: 28px 32px; max-width: 100%; }
+      section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="hero">
+      <div class="logo">C</div>
+      <h1>Cooldown nedir?</h1>
+      <p class="subtitle">Bilgisayar başında çalışırken ne zaman yorulduğunuzu anlayan, size mola zamanı geldiğini hatırlatan küçük bir masaüstü programı.</p>
+    </header>
+
+    <section>
+      <h2>Kısaca ne yapar?</h2>
+      <div class="box highlight">
+        <p style="margin:0;font-size:1.05rem;">
+          Cooldown, özellikle <strong>yazılımcılar ve bilgisayar başında uzun süre çalışanlar</strong> için tasarlandı.
+          Siz çalışmaya devam ederken arka planda sizi izler — ne kadar hata aldığınızı, ne sıklıkla program değiştirdiğinizi, ne kadar yoğun çalıştığınızı takip eder.
+          Sonra size <strong>0 ile 100 arasında bir "Yorgunluk Puanı"</strong> verir.
+        </p>
+      </div>
+      <p>Puan yükseldikçe "Biraz dinlenme zamanı" der ve mola vermenizi önerir. Amacı sizi zorlamak değil — <strong>çok yorulmadan önce durmanıza yardım etmek.</strong></p>
+    </section>
+
+    <section>
+      <h2>Nasıl çalışır? (4 adım)</h2>
+      <ul class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <div class="step-text">
+            <strong>Çalışmanızı sessizce izler</strong>
+            <span>Kod yazarken oluşan hataları, terminalde patlayan komutları ve hangi programlarda ne kadar vakit geçirdiğinizi fark eder. Sizin ekstra bir şey yapmanıza gerek kalmaz.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div class="step-text">
+            <strong>Yorgunluk puanını hesaplar</strong>
+            <span>Topladığı bilgileri birleştirir ve anlık bir puan çıkarır. Puan düşükse iyisiniz demektir; yükseldikçe yorulmaya başladığınız anlaşılır.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div class="step-text">
+            <strong>Verileri sadece sizin bilgisayarınızda tutar</strong>
+            <span>Hiçbir şey internete gönderilmez. Buluta yükleme yok, hesap açma yok. Her şey kendi cihazınızda kalır.</span>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <div class="step-text">
+            <strong>Gerektiğinde nazikçe uyarır</strong>
+            <span>Ekranın köşesinde küçük bir simge veya bildirimle "Bir mola iyi gelir" der. İsterseniz erteleme de yapabilirsiniz.</span>
+          </div>
+        </li>
+      </ul>
+
+      <div class="score-bar">
+        <div class="score-item green">
+          <span class="label">🟢 İyi gidiyorsun</span>
+          0 – 40 puan
+        </div>
+        <div class="score-item yellow">
+          <span class="label">🟡 Biraz yoruldun</span>
+          40 – 75 puan
+        </div>
+        <div class="score-item red">
+          <span class="label">🔴 Mola zamanı</span>
+          75 – 100 puan
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Ne işe yarar?</h2>
+      <ul class="features">
+        <li>
+          <span class="icon">📊</span>
+          <div>
+            <strong>Yorgunluk puanı gösterir</strong>
+            <span>Şu an ne kadar yorulduğunuzu tek bakışta görürsünüz.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">💻</span>
+          <div>
+            <strong>Kod editörünüze bağlanır</strong>
+            <span>VS Code ve Cursor gibi programlardaki hataları otomatik fark eder.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">⌨️</span>
+          <div>
+            <strong>Terminali de dinler</strong>
+            <span>PowerShell veya Zsh kullanıyorsanız başarısız komutları da sayar.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">🔒</span>
+          <div>
+            <strong>Gizliliğinize saygı duyar</strong>
+            <span>Veriler yalnızca sizin bilgisayarınızda. Kimseyle paylaşılmaz.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">☕</span>
+          <div>
+            <strong>Mola hatırlatır</strong>
+            <span>Çok uzun süre durmadan çalışırsanız sizi uyarır, dinlenmenizi önerir.</span>
+          </div>
+        </li>
+        <li>
+          <span class="icon">📱</span>
+          <div>
+            <strong>Arka planda çalışır</strong>
+            <span>Ekranın altındaki simgeden (tray) açıp kapatabilirsiniz. Bilgisayarınızı yavaşlatmaz.</span>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Kimler kullanabilir?</h2>
+      <div class="box">
+        <p style="margin:0;">
+          Öncelikle <strong>yazılım geliştiriciler</strong> için yapıldı — ama gün boyu bilgisayar başında oturan herkes faydalanabilir:
+          öğrenciler, tasarımcılar, yazarlar, uzaktan çalışanlar…
+          Kısaca: <em>"Çalışırken fark etmeden çok yoruluyorum"</em> diyorsanız, Cooldown tam size göre.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="closing">
+        <h2>Özet</h2>
+        <p>Cooldown, bilgisayar başında çalışırken sizi dinleyen, yorulduğunuzda nazikçe uyan ve mola vermenizi hatırlatan bir yardımcı programdır. Kurulumu kolaydır, internet gerektirmez, verileriniz size aittir.</p>
+        <p class="tagline">Daha az tükenmişlik. Daha bilinçli molalar. Daha sağlıklı çalışma.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Cooldown · Bilgisayarınızda çalışan, sizi dinleyen mola asistanı
+    </footer>
+
+  </div>
+</body>
+</html>

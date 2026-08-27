@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Cooldown",
+  "version": "0.2.0",
+  "identifier": "com.cooldown.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Cooldown",
+        "width": 1024,
+        "height": 760,
+        "minWidth": 720,
+        "minHeight": 560,
+        "resizable": true
+      },
+      {
+        "label": "widget",
+        "title": "Cooldown Widget",
+        "url": "/?widget=1",
+        "width": 240,
+        "height": 100,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "entitlements": "./Entitlements.plist",
+      "infoPlist": {
+        "NSAccessibilityUsageDescription": "Cooldown needs Accessibility access to detect which app you are using and estimate cognitive load.",
+        "NSInputMonitoringUsageDescription": "Cooldown monitors typing cadence (not content) to calculate your fatigue score.",
+        "LSMinimumSystemVersion": "10.15"
+      }
+    }
+  }
+}
