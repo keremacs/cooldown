@@ -1,49 +1,30 @@
-//! Event-driven active window tracking.
-//!
-//! Windows: `SetWinEventHook` with `EVENT_SYSTEM_FOREGROUND` (zero polling).
-//! Other platforms: lightweight 1 s poll via `active-win-pos-rs`.
+//! Active window tracking — 1 s poll on all platforms (reliable screen-time accrual).
 
-use std::sync::{mpsc, Arc, OnceLock};
+use std::sync::Arc;
 use std::time::Duration;
+
+use sysinfo::{Pid, ProcessesToUpdate, System};
 
 use crate::state::AppState;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
-static FOREGROUND_SIGNAL: OnceLock<mpsc::Sender<()>> = OnceLock::new();
-
 pub fn start(state: Arc<AppState>) {
     std::thread::Builder::new()
         .name("cooldown-window".into())
-        .spawn(move || window_loop(state))
+        .spawn(move || poll_loop(state))
         .expect("failed to spawn window tracker");
 }
 
-fn window_loop(state: Arc<AppState>) {
-    #[cfg(target_os = "windows")]
-    {
-        if windows_hook_loop(&state).is_err() {
-            eprintln!("[cooldown] win event hook unavailable, falling back to polling");
-            poll_loop(state);
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        poll_loop(state);
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
 fn poll_loop(state: Arc<AppState>) {
+    let mut sys = System::new();
     loop {
-        if let Ok(win) = active_win_pos_rs::get_active_window() {
-            let title = win.title.clone();
-            let app = normalize_app_name(&win.app_name);
+        if let Some((title, app)) = read_foreground_window(&mut sys) {
             state.record_window_change(title, app);
         } else {
-            state.tick_screen_time();
+            state.pause_self_tracking();
         }
+        state.tick_screen_time();
         std::thread::sleep(POLL_INTERVAL);
     }
 }
@@ -56,102 +37,12 @@ fn normalize_app_name(raw: &str) -> String {
         .to_string()
 }
 
-#[cfg(target_os = "windows")]
-fn poll_loop(state: Arc<AppState>) {
-    loop {
-        if let Some((title, app)) = read_foreground_window() {
-            state.record_window_change(title, app);
-        } else {
-            state.tick_screen_time();
-        }
-        std::thread::sleep(POLL_INTERVAL);
-    }
+fn is_self_process(stem: &str) -> bool {
+    stem.eq_ignore_ascii_case("cooldown")
 }
 
 #[cfg(target_os = "windows")]
-fn windows_hook_loop(state: &Arc<AppState>) -> Result<(), ()> {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
-    use windows::Win32::UI::Accessibility::SetWinEventHook;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageW, GetMessageW, PeekMessageW, TranslateMessage, EVENT_SYSTEM_FOREGROUND,
-        MSG, PM_REMOVE,
-    };
-
-    unsafe {
-        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-    }
-
-    let (tx, rx) = mpsc::channel();
-    FOREGROUND_SIGNAL
-        .set(tx)
-        .map_err(|_| ())?;
-
-    unsafe extern "system" fn foreground_hook(
-        _hook: windows::Win32::UI::Accessibility::HWINEVENTHOOK,
-        event: u32,
-        hwnd: HWND,
-        _id_object: i32,
-        _id_child: i32,
-        _thread: u32,
-        _time: u32,
-    ) {
-        if event == EVENT_SYSTEM_FOREGROUND && !hwnd.0.is_null() {
-            if let Some(tx) = FOREGROUND_SIGNAL.get() {
-                let _ = tx.send(());
-            }
-        }
-    }
-
-    let hook = unsafe {
-        SetWinEventHook(
-            EVENT_SYSTEM_FOREGROUND,
-            EVENT_SYSTEM_FOREGROUND,
-            None,
-            Some(foreground_hook),
-            0,
-            0,
-            0,
-        )
-    };
-
-    if hook.is_invalid() {
-        return Err(());
-    }
-
-    // Initial reading.
-    if let Some((title, app)) = read_foreground_window() {
-        state.record_window_change(title, app);
-    }
-
-    loop {
-        while rx.try_recv().is_ok() {
-            if let Some((title, app)) = read_foreground_window() {
-                state.record_window_change(title, app);
-            }
-        }
-
-        // Periodic refresh even without focus events — keeps screen time accruing.
-        if let Some((title, app)) = read_foreground_window() {
-            state.record_window_change(title, app);
-        } else {
-            state.tick_screen_time();
-        }
-
-        unsafe {
-            let mut msg = MSG::default();
-            while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).into() {
-                let _ = TranslateMessage(&msg);
-                let _ = DispatchMessageW(&msg);
-            }
-            // Block briefly so the hook thread stays responsive without busy-waiting.
-            let _ = GetMessageW(&mut msg, None, 0, 0);
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn read_foreground_window() -> Option<(String, String)> {
+fn read_foreground_window(sys: &mut System) -> Option<(String, String)> {
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
 
     unsafe {
@@ -167,13 +58,56 @@ fn read_foreground_window() -> Option<(String, String)> {
         let mut pid = 0u32;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
 
-        let app = process_name(pid).map(|n| normalize_app_name(&n)).unwrap_or_else(|| "unknown".to_string());
+        let app = resolve_process_name(sys, pid)?;
+        if is_self_process(&process_stem(&app)) {
+            return None;
+        }
+
         Some((title, app))
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+fn read_foreground_window(_sys: &mut System) -> Option<(String, String)> {
+    let win = active_win_pos_rs::get_active_window().ok()?;
+    let app = normalize_app_name(&win.app_name);
+    if is_self_process(&process_stem(&app)) {
+        return None;
+    }
+    Some((win.title, app))
+}
+
+fn process_stem(app_name: &str) -> String {
+    let base = app_name
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(app_name)
+        .trim()
+        .to_lowercase();
+    base.strip_suffix(".exe")
+        .or_else(|| base.strip_suffix(".app"))
+        .unwrap_or(&base)
+        .to_string()
+}
+
+fn resolve_process_name(sys: &mut System, pid: u32) -> Option<String> {
+    if pid == 0 {
+        return None;
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some(name) = process_name_winapi(pid) {
+        return Some(normalize_app_name(&name));
+    }
+
+    let pid = Pid::from_u32(pid);
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+    sys.process(pid)
+        .map(|p| normalize_app_name(&p.name().to_string_lossy()))
+}
+
 #[cfg(target_os = "windows")]
-fn process_name(pid: u32) -> Option<String> {
+fn process_name_winapi(pid: u32) -> Option<String> {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
@@ -181,7 +115,7 @@ fn process_name(pid: u32) -> Option<String> {
 
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
-        let mut buffer = [0u16; 260];
+        let mut buffer = [0u16; 512];
         let mut size = buffer.len() as u32;
         let ok = QueryFullProcessImageNameW(
             handle,
@@ -194,11 +128,8 @@ fn process_name(pid: u32) -> Option<String> {
             return None;
         }
         let path = String::from_utf16_lossy(&buffer[..size as usize]);
-        Some(
-            path.rsplit(['\\', '/'])
-                .next()
-                .unwrap_or("unknown")
-                .to_string(),
-        )
+        path.rsplit(['\\', '/'])
+            .next()
+            .map(|s| s.to_string())
     }
 }

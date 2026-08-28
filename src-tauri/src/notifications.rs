@@ -1,6 +1,6 @@
 //! Graduated alerts and contextual break suggestions.
 
-use crate::models::{AlertLevel, BreakSuggestion, BreakNotification, AlertToast};
+use crate::models::{AlertLevel, AlertToast, BreakNotification, BreakSuggestion, DailySummary, PomodoroPhase};
 
 pub fn break_suggestion_for(level: AlertLevel, fatigue: f64, errors: u32) -> BreakSuggestion {
     match level {
@@ -62,5 +62,24 @@ pub fn build_hint_toast(fatigue: f64) -> Option<AlertToast> {
         })
     } else {
         None
+    }
+}
+
+pub fn build_pomodoro_toast(
+    message: String,
+    phase: PomodoroPhase,
+    cycle: u32,
+) -> Option<crate::models::PomodoroNotification> {
+    Some(crate::models::PomodoroNotification {
+        message,
+        phase,
+        cycle,
+    })
+}
+
+pub fn build_daily_summary_toast(summary: &DailySummary) -> AlertToast {
+    AlertToast {
+        level: AlertLevel::Hint,
+        message: summary.message.clone(),
     }
 }

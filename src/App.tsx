@@ -8,6 +8,7 @@ import { JournalTab } from "./components/JournalTab";
 import { SettingsTab } from "./components/SettingsTab";
 import { MiniWidget } from "./components/MiniWidget";
 import { FatigueNotification, AlertHintToast } from "./components/FatigueNotification";
+import { DailySummaryToast } from "./components/DailySummaryToast";
 import { useCooldownState } from "./hooks/useCooldownState";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 
@@ -23,11 +24,18 @@ function Dashboard() {
     events,
     notification,
     hint,
+    pomodoro,
+    dailySummary,
+    setDailySummary,
     journal,
     dismissNotification,
     snoozeNotification,
     saveJournal,
     setFocusMode,
+    startPomodoro,
+    saveEmailSettings,
+    sendWeeklyReport,
+    saveWeeklyReportFile,
     setRetentionDays,
     setAutostart,
   } = useCooldownState();
@@ -50,7 +58,9 @@ function Dashboard() {
           <p className="text-xs text-[var(--text-muted)]">
             Cognitive load &amp; burnout tracker
             {state.focus_mode.active && (
-              <span className="ml-2 text-cool-400">· Focus Mode ON</span>
+              <span className="ml-2 text-cool-400">
+                · {state.focus_mode.pomodoro ? "Pomodoro" : "Focus Mode"} ON
+              </span>
             )}
           </p>
         </div>
@@ -77,8 +87,12 @@ function Dashboard() {
           <SettingsTab
             state={state}
             onFocusMode={setFocusMode}
+            onStartPomodoro={startPomodoro}
             onRetention={setRetentionDays}
             onAutostart={setAutostart}
+            onSaveEmail={saveEmailSettings}
+            onSendWeeklyReport={sendWeeklyReport}
+            onSaveWeeklyReportFile={saveWeeklyReportFile}
           />
         )}
       </main>
@@ -92,6 +106,15 @@ function Dashboard() {
         />
       )}
       {hint && <AlertHintToast message={hint.message} />}
+      {pomodoro && (
+        <AlertHintToast message={`🍅 ${pomodoro.message}`} />
+      )}
+      {dailySummary && (
+        <DailySummaryToast
+          summary={dailySummary}
+          onDismiss={() => setDailySummary(null)}
+        />
+      )}
     </div>
   );
 }

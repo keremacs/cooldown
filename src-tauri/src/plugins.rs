@@ -38,6 +38,13 @@ impl PluginRegistry {
                 events: 0,
             },
         );
+        defaults.insert(
+            "git".into(),
+            PluginRecord {
+                name: "Git".into(),
+                events: 0,
+            },
+        );
         Self {
             inner: RwLock::new(defaults),
         }

@@ -64,10 +64,51 @@ export interface BreakSuggestion {
   duration_min: number;
 }
 
+export type PomodoroPhase = "idle" | "work" | "break" | "long_break";
+
 export interface FocusModeState {
   active: boolean;
   until: number | null;
   session_secs: number;
+  pomodoro?: boolean;
+  phase?: PomodoroPhase;
+  cycle?: number;
+}
+
+export interface AppUsageEntry {
+  app_name: string;
+  category: string;
+  secs: number;
+}
+
+export interface DailySummary {
+  date: string;
+  screen_time: ScreenTimeTotals;
+  top_apps: AppUsageEntry[];
+  git_commits: number;
+  peak_fatigue: number;
+  total_errors: number;
+  journal_entries: number;
+  context_switches: number;
+  message: string;
+}
+
+export interface PomodoroNotification {
+  message: string;
+  phase: PomodoroPhase;
+  cycle: number;
+}
+
+export interface EmailSettings {
+  enabled: boolean;
+  to: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  weekly_day: number;
+  weekly_hour: number;
+  daily_summary_hour?: number;
+  daily_summary_enabled?: boolean;
 }
 
 export interface BenchmarkMetrics {
@@ -99,6 +140,8 @@ export interface DashboardState {
   errors_last_hour: number;
   keystrokes_per_min: number;
   active_window: string;
+  active_app: string;
+  active_category: string;
   notification_pending: boolean;
   snoozed_until: number | null;
   deep_work_score: number;
@@ -116,6 +159,9 @@ export interface DashboardState {
   theme: string;
   retention_days: number;
   autostart_enabled: boolean;
+  app_usage: AppUsageEntry[];
+  git_commits_today: number;
+  email_settings: EmailSettings;
 }
 
 export interface DevEvent {

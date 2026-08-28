@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Cooldown git post-commit hook — records commits as activity (not errors).
+# Install: cp integrations/git/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit
+
+MSG=$(git log -1 --pretty=%s 2>/dev/null | head -c 200)
+curl -sf -X POST http://127.0.0.1:9876/event \
+  -H 'Content-Type: application/json' \
+  -d "{\"source\":\"git\",\"plugin\":\"git\",\"event\":\"git_commit\",\"message\":\"${MSG}\"}" \
+  >/dev/null 2>&1 || true

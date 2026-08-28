@@ -14,6 +14,13 @@ const CATEGORIES = [
   { key: "other_secs" as const, label: "Other", color: "#64748b" },
 ];
 
+const CATEGORY_LABELS: Record<string, string> = {
+  ide: "IDE",
+  browser: "Browser",
+  communication: "Communication",
+  other: "Other",
+};
+
 export function ScreenTimeTab({ state }: ScreenTimeTabProps) {
   const chart = useChartTheme();
   const { screen_time: st } = state;
@@ -89,14 +96,62 @@ export function ScreenTimeTab({ state }: ScreenTimeTabProps) {
         </div>
       </div>
 
+      {state.app_usage.length > 0 && (
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Per-App Usage
+            </h3>
+            {state.git_commits_today > 0 && (
+              <span className="text-[10px] text-[var(--text-muted)]">
+                {state.git_commits_today} git commit{state.git_commits_today !== 1 ? "s" : ""} today
+              </span>
+            )}
+          </div>
+          <div className="scroll-area max-h-56 space-y-1 pr-1">
+            {state.app_usage.map((app) => (
+              <div
+                key={app.app_name}
+                className="flex items-center gap-3 py-1.5 border-b border-[var(--border)]/40 last:border-0"
+              >
+                <span className="text-sm text-[var(--text)] flex-1 truncate">{app.app_name}</span>
+                <span className="text-[10px] uppercase text-[var(--text-muted)] shrink-0">
+                  {CATEGORY_LABELS[app.category] ?? app.category}
+                </span>
+                <span className="text-sm tabular-nums text-[var(--text-muted)] w-16 text-right shrink-0">
+                  {formatDuration(app.secs)}
+                </span>
+                <span className="text-xs tabular-nums text-[var(--text-muted)] w-10 text-right opacity-70 shrink-0">
+                  {formatPercent(app.secs, total)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Active window */}
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-        <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-          Active Window
-        </p>
-        <p className="text-sm text-[var(--text)] mt-1 truncate">
-          {state.active_window || "—"}
-        </p>
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 space-y-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+            Active Window
+          </p>
+          <p className="text-sm text-[var(--text)] mt-1 truncate">
+            {state.active_window || "—"}
+          </p>
+        </div>
+        <div className="flex gap-4 text-xs">
+          <div>
+            <span className="text-[var(--text-muted)]">App </span>
+            <span className="text-[var(--text)] font-medium">{state.active_app || "—"}</span>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)]">Category </span>
+            <span className="text-[var(--text)] font-medium">
+              {CATEGORY_LABELS[state.active_category] ?? state.active_category ?? "—"}
+            </span>
+          </div>
+        </div>
       </div>
 
       <p className="text-xs text-[var(--text-muted)] text-center opacity-80">

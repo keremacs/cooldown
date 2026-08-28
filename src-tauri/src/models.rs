@@ -38,9 +38,22 @@ impl ErrorCategory {
             Some("test_failed") | Some("test_error") => Self::Test,
             Some("task_failed") => Self::Task,
             Some("runtime_error") => Self::Runtime,
-            _ if event.exit_code.is_some() => Self::Terminal,
+            Some("git_commit") | Some("git_push") => Self::Unknown, // activity, not error
+            _ if event.exit_code.is_some_and(|c| c != 0) => Self::Terminal,
+            _ if event.exit_code.is_some() => Self::Unknown, // success terminal — activity
             _ => Self::Unknown,
         }
+    }
+
+    pub fn is_error_event(event: &DevEvent) -> bool {
+        if event.is_activity() {
+            return false;
+        }
+        event.exit_code.is_none_or(|c| c != 0)
+            || matches!(
+                event.event.as_deref(),
+                Some("build_error" | "lint_error" | "test_failed" | "test_error" | "task_failed" | "runtime_error")
+            )
     }
 
     pub fn as_str(&self) -> &'static str {
@@ -65,6 +78,18 @@ impl ErrorCategory {
             "task" => Self::Task,
             _ => Self::Unknown,
         }
+    }
+}
+
+impl DevEvent {
+    pub fn is_activity(&self) -> bool {
+        if let Some(ev) = self.event.as_deref() {
+            if ev == "git_commit" || ev == "git_push" || ev.starts_with("git_") {
+                return true;
+            }
+        }
+        (self.source == "git" && self.exit_code.is_none())
+            || (self.exit_code == Some(0) && self.source == "terminal")
     }
 }
 
@@ -121,9 +146,23 @@ pub enum AppCategory {
 }
 
 impl AppCategory {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ide => "ide",
+            Self::Browser => "browser",
+            Self::Communication => "communication",
+            Self::Other => "other",
+        }
+    }
+
     pub fn classify(title: &str, app_name: &str) -> Self {
         let stem = process_stem(app_name);
         let haystack = format!("{} {}", title, app_name).to_lowercase();
+
+        // Cooldown itself — don't categorize as productive time.
+        if stem == "cooldown" {
+            return Self::Other;
+        }
 
         // UWP / shell hosts expose the real app in the window title, not the process name.
         const UWP_HOSTS: &[&str] = &[
@@ -140,11 +179,12 @@ impl AppCategory {
                 "notepad++", "xcode", "terminal", "iterm2", "iterm", "warp", "alacritty",
                 "kitty", "ghostty", "wezterm", "hyper", "tabby", "sublime text", "nova",
                 "bbedit", "zed", "datagrip", "intellij", "android studio", "fleet",
-                "vscodium", "neovide", "lapce",
+                "vscodium", "neovide", "lapce", "docker desktop", "postman", "insomnia",
             ];
             const BROWSER_PROCESSES: &[&str] = &[
                 "chrome", "firefox", "msedge", "msedgewebview2", "brave", "opera",
                 "vivaldi", "iexplore", "safari", "arc", "orion", "waterfox", "librewolf",
+                "chromium",
             ];
             const COMM_PROCESSES: &[&str] = &[
                 "slack", "discord", "teams", "ms-teams", "zoom", "outlook", "olk",
@@ -165,17 +205,18 @@ impl AppCategory {
         const IDE_TITLES: &[&str] = &[
             "visual studio code", "vscode", "visual studio", "jetbrains", "intellij",
             "pycharm", "webstorm", "goland", "rider", "datagrip", "android studio",
-            "neovim", "nvim", "vim", "emacs", "sublime", "zed", "xcode", "github copilot",
+            "neovim", "nvim", " - vim", "emacs", "sublime", "zed", "xcode", "github copilot",
             "iterm", "warp", "alacritty", "wezterm", "windows terminal", "cursor",
-            "vscodium", "neovide", "lapce", "fleet",
+            "vscodium", "neovide", "lapce", "fleet", "postman", "docker desktop",
         ];
         const BROWSER_TITLES: &[&str] = &[
             "google chrome", "mozilla firefox", "microsoft edge", "brave", "opera",
             "vivaldi", "safari", "arc browser", " - chrome", " - firefox", " - edge",
+            "and google chrome", "in chrome", "in firefox", "in edge",
         ];
         const COMM_TITLES: &[&str] = &[
-            "slack", "discord", "microsoft teams", "ms teams", "zoom", "outlook",
-            "telegram", "whatsapp", "signal", "skype",
+            "slack", "discord", "microsoft teams", "ms teams", "zoom meeting", "zoom ",
+            "outlook", "telegram", "whatsapp", "signal", "skype",
         ];
 
         if IDE_TITLES.iter().any(|k| haystack.contains(k)) {
@@ -346,11 +387,89 @@ pub struct BreakSuggestion {
     pub duration_min: u32,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PomodoroPhase {
+    #[default]
+    Idle,
+    Work,
+    Break,
+    LongBreak,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FocusModeState {
     pub active: bool,
     pub until: Option<i64>,
     pub session_secs: u64,
+    #[serde(default)]
+    pub pomodoro: bool,
+    #[serde(default)]
+    pub phase: PomodoroPhase,
+    #[serde(default)]
+    pub cycle: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppUsageEntry {
+    pub app_name: String,
+    pub category: String,
+    pub secs: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailySummary {
+    pub date: String,
+    pub screen_time: ScreenTimeTotals,
+    pub top_apps: Vec<AppUsageEntry>,
+    pub git_commits: u32,
+    pub peak_fatigue: f64,
+    pub total_errors: u32,
+    pub journal_entries: u32,
+    pub context_switches: u32,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PomodoroNotification {
+    pub message: String,
+    pub phase: PomodoroPhase,
+    pub cycle: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmailSettings {
+    pub enabled: bool,
+    pub to: String,
+    pub smtp_host: String,
+    pub smtp_port: u16,
+    pub smtp_user: String,
+    pub weekly_day: u8,
+    pub weekly_hour: u8,
+    #[serde(default)]
+    pub daily_summary_hour: u8,
+    #[serde(default = "default_daily_summary_enabled")]
+    pub daily_summary_enabled: bool,
+}
+
+fn default_daily_summary_enabled() -> bool {
+    true
+}
+
+impl Default for EmailSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            to: String::new(),
+            smtp_host: String::new(),
+            smtp_port: 587,
+            smtp_user: String::new(),
+            weekly_day: 0,
+            weekly_hour: 9,
+            daily_summary_hour: 18,
+            daily_summary_enabled: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -394,6 +513,8 @@ pub struct DashboardState {
     pub errors_last_hour: u32,
     pub keystrokes_per_min: f64,
     pub active_window: String,
+    pub active_app: String,
+    pub active_category: String,
     pub notification_pending: bool,
     pub snoozed_until: Option<i64>,
     pub deep_work_score: f64,
@@ -411,6 +532,9 @@ pub struct DashboardState {
     pub theme: String,
     pub retention_days: u32,
     pub autostart_enabled: bool,
+    pub app_usage: Vec<AppUsageEntry>,
+    pub git_commits_today: u32,
+    pub email_settings: EmailSettings,
 }
 
 /// Payload emitted to the frontend when an HTTP hook delivers a new event.

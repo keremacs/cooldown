@@ -8,7 +8,7 @@ use rusqlite::{params, Connection};
 use tauri::{AppHandle, Manager};
 
 use crate::models::{
-    BaselineMetrics, ErrorCategory, JournalEntry, TrendBucket, TrendPeriod,
+    AppUsageEntry, BaselineMetrics, ErrorCategory, JournalEntry, TrendBucket, TrendPeriod,
 };
 
 pub struct Database {
@@ -90,6 +90,23 @@ impl Database {
                 ts_end INTEGER,
                 duration_min INTEGER NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS app_usage_daily (
+                date TEXT NOT NULL,
+                app_name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                secs INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (date, app_name)
+            );
+
+            CREATE TABLE IF NOT EXISTS activity_events (
+                id INTEGER PRIMARY KEY,
+                ts INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                message TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_activity_ts ON activity_events(ts);
             ",
         )
         .expect("schema");
@@ -211,6 +228,25 @@ impl Database {
                other_secs=excluded.other_secs",
             params![date, ide as i64, browser as i64, comm as i64, other as i64],
         );
+    }
+
+    pub fn load_screen_time_today(&self) -> crate::models::ScreenTimeTotals {
+        let date = Local::now().format("%Y-%m-%d").to_string();
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT ide_secs, browser_secs, communication_secs, other_secs
+             FROM screen_time_daily WHERE date = ?1",
+            params![date],
+            |r| {
+                Ok(crate::models::ScreenTimeTotals {
+                    ide_secs: r.get::<_, i64>(0)? as u64,
+                    browser_secs: r.get::<_, i64>(1)? as u64,
+                    communication_secs: r.get::<_, i64>(2)? as u64,
+                    other_secs: r.get::<_, i64>(3)? as u64,
+                })
+            },
+        )
+        .unwrap_or_default()
     }
 
     pub fn start_break(&self, ts: i64, kind: &str) -> i64 {
@@ -359,5 +395,253 @@ impl Database {
             "DELETE FROM screen_time_daily WHERE date < ?1",
             params![date_cutoff],
         );
+        let _ = conn.execute(
+            "DELETE FROM app_usage_daily WHERE date < ?1",
+            params![date_cutoff],
+        );
+        let _ = conn.execute("DELETE FROM activity_events WHERE ts < ?1", params![cutoff]);
+    }
+
+    pub fn upsert_app_usage(&self, app_name: &str, category: &str, secs: u64) {
+        if app_name.is_empty() || app_name == "Unknown" || app_name == "protected" {
+            return;
+        }
+        let date = Local::now().format("%Y-%m-%d").to_string();
+        let conn = self.conn.lock();
+        let _ = conn.execute(
+            "INSERT INTO app_usage_daily(date, app_name, category, secs)
+             VALUES(?1,?2,?3,?4)
+             ON CONFLICT(date, app_name) DO UPDATE SET
+               secs = app_usage_daily.secs + excluded.secs,
+               category = excluded.category",
+            params![date, app_name, category, secs as i64],
+        );
+    }
+
+    pub fn app_usage_today(&self) -> Vec<AppUsageEntry> {
+        let date = Local::now().format("%Y-%m-%d").to_string();
+        self.app_usage_for_date(&date)
+    }
+
+    pub fn app_usage_week(&self) -> Vec<AppUsageEntry> {
+        let cutoff = (Local::now() - chrono::Duration::days(7))
+            .format("%Y-%m-%d")
+            .to_string();
+        let conn = self.conn.lock();
+        let mut stmt = conn
+            .prepare(
+                "SELECT app_name, category, SUM(secs) as total
+                 FROM app_usage_daily WHERE date >= ?1
+                 GROUP BY app_name ORDER BY total DESC",
+            )
+            .expect("app usage week");
+        stmt.query_map(params![cutoff], |r| {
+            Ok(AppUsageEntry {
+                app_name: r.get(0)?,
+                category: r.get(1)?,
+                secs: r.get::<_, i64>(2)? as u64,
+            })
+        })
+        .expect("app usage week map")
+        .filter_map(|r| r.ok())
+        .collect()
+    }
+
+    fn app_usage_for_date(&self, date: &str) -> Vec<AppUsageEntry> {
+        let conn = self.conn.lock();
+        let mut stmt = conn
+            .prepare(
+                "SELECT app_name, category, secs FROM app_usage_daily
+                 WHERE date = ?1 ORDER BY secs DESC",
+            )
+            .expect("app usage today");
+        stmt.query_map(params![date], |r| {
+            Ok(AppUsageEntry {
+                app_name: r.get(0)?,
+                category: r.get(1)?,
+                secs: r.get::<_, i64>(2)? as u64,
+            })
+        })
+        .expect("app usage today map")
+        .filter_map(|r| r.ok())
+        .collect()
+    }
+
+    pub fn record_activity(&self, ts: i64, source: &str, event_type: &str, message: Option<&str>) {
+        let conn = self.conn.lock();
+        let _ = conn.execute(
+            "INSERT INTO activity_events(ts, source, event_type, message) VALUES(?1,?2,?3,?4)",
+            params![ts, source, event_type, message],
+        );
+    }
+
+    pub fn git_commits_today(&self) -> u32 {
+        let start = Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+        self.git_commits_since(start.and_utc().timestamp())
+    }
+
+    pub fn git_commits_week(&self) -> u32 {
+        let start = (Local::now() - chrono::Duration::days(7)).timestamp();
+        self.git_commits_since(start)
+    }
+
+    fn git_commits_since(&self, since_ts: i64) -> u32 {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT COUNT(*) FROM activity_events
+             WHERE ts >= ?1 AND event_type IN ('git_commit', 'git_push')",
+            params![since_ts],
+            |r| r.get(0),
+        )
+        .unwrap_or(0)
+    }
+
+    pub fn peak_fatigue_today(&self) -> f64 {
+        let start = Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT COALESCE(MAX(fatigue), 0) FROM hourly_metrics WHERE ts >= ?1",
+            params![start.and_utc().timestamp()],
+            |r| r.get(0),
+        )
+        .unwrap_or(0.0)
+    }
+
+    pub fn error_count_today(&self) -> u32 {
+        let start = Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT COUNT(*) FROM error_events WHERE ts >= ?1",
+            params![start.and_utc().timestamp()],
+            |r| r.get(0),
+        )
+        .unwrap_or(0)
+    }
+
+    pub fn journal_count_today(&self) -> u32 {
+        let start = Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT COUNT(*) FROM journal_entries WHERE ts >= ?1",
+            params![start.and_utc().timestamp()],
+            |r| r.get(0),
+        )
+        .unwrap_or(0)
+    }
+
+    pub fn total_switches_today(&self) -> u32 {
+        let start = Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT COALESCE(SUM(switches), 0) FROM hourly_metrics WHERE ts >= ?1",
+            params![start.and_utc().timestamp()],
+            |r| r.get(0),
+        )
+        .unwrap_or(0)
+    }
+
+    pub fn email_to(&self) -> Option<String> {
+        self.get_setting("email_to").filter(|s| !s.is_empty())
+    }
+
+    pub fn smtp_host(&self) -> Option<String> {
+        self.get_setting("smtp_host").filter(|s| !s.is_empty())
+    }
+
+    pub fn smtp_port(&self) -> u16 {
+        self.get_setting("smtp_port")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(587)
+    }
+
+    pub fn smtp_user(&self) -> Option<String> {
+        self.get_setting("smtp_user").filter(|s| !s.is_empty())
+    }
+
+    pub fn smtp_password(&self) -> Option<String> {
+        self.get_setting("smtp_password").filter(|s| !s.is_empty())
+    }
+
+    pub fn email_enabled(&self) -> bool {
+        self.get_setting("email_enabled")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false)
+    }
+
+    pub fn daily_summary_enabled(&self) -> bool {
+        self.get_setting("daily_summary_enabled")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(true)
+    }
+
+    pub fn daily_summary_hour(&self) -> u8 {
+        self.get_setting("daily_summary_hour")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(18)
+    }
+
+    pub fn weekly_email_day(&self) -> u8 {
+        self.get_setting("weekly_email_day")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0)
+    }
+
+    pub fn weekly_email_hour(&self) -> u8 {
+        self.get_setting("weekly_email_hour")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(9)
+    }
+
+    pub fn last_daily_summary_date(&self) -> Option<String> {
+        self.get_setting("last_daily_summary_date")
+    }
+
+    pub fn set_last_daily_summary_date(&self, date: &str) {
+        self.set_setting("last_daily_summary_date", date);
+    }
+
+    pub fn last_weekly_report_date(&self) -> Option<String> {
+        self.get_setting("last_weekly_report_date")
+    }
+
+    pub fn set_last_weekly_report_date(&self, date: &str) {
+        self.set_setting("last_weekly_report_date", date);
+    }
+
+    pub fn load_email_settings(&self) -> crate::models::EmailSettings {
+        crate::models::EmailSettings {
+            enabled: self.email_enabled(),
+            to: self.get_setting("email_to").unwrap_or_default(),
+            smtp_host: self.get_setting("smtp_host").unwrap_or_default(),
+            smtp_port: self.smtp_port(),
+            smtp_user: self.get_setting("smtp_user").unwrap_or_default(),
+            weekly_day: self.weekly_email_day(),
+            weekly_hour: self.weekly_email_hour(),
+            daily_summary_hour: self.daily_summary_hour(),
+            daily_summary_enabled: self.daily_summary_enabled(),
+        }
+    }
+
+    pub fn save_email_settings(&self, settings: &crate::models::EmailSettings) {
+        self.set_setting("email_enabled", if settings.enabled { "true" } else { "false" });
+        self.set_setting("email_to", &settings.to);
+        self.set_setting("smtp_host", &settings.smtp_host);
+        self.set_setting("smtp_port", &settings.smtp_port.to_string());
+        self.set_setting("smtp_user", &settings.smtp_user);
+        self.set_setting("weekly_email_day", &settings.weekly_day.to_string());
+        self.set_setting("weekly_email_hour", &settings.weekly_hour.to_string());
+        self.set_setting("daily_summary_hour", &settings.daily_summary_hour.to_string());
+        self.set_setting(
+            "daily_summary_enabled",
+            if settings.daily_summary_enabled {
+                "true"
+            } else {
+                "false"
+            },
+        );
+    }
+
+    pub fn set_smtp_password(&self, password: &str) {
+        self.set_setting("smtp_password", password);
     }
 }

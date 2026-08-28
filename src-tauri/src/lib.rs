@@ -2,6 +2,7 @@ mod analytics;
 mod autostart;
 mod benchmark;
 mod db;
+mod email;
 mod fatigue;
 mod focus;
 mod http_server;
@@ -11,6 +12,7 @@ mod notifications;
 mod plugins;
 mod power_monitor;
 mod privacy;
+mod reports;
 mod state;
 mod tray;
 mod window_tracker;
@@ -21,7 +23,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use db::Database;
-use models::{DashboardState, JournalEntry, TrendPeriod};
+use models::{DailySummary, DashboardState, EmailSettings, JournalEntry, TrendPeriod};
 use plugins::PluginRegistry;
 use state::AppState;
 
@@ -55,8 +57,56 @@ fn get_journal(state: State<'_, Arc<AppState>>, limit: u32) -> Vec<JournalEntry>
 }
 
 #[tauri::command]
-fn set_focus_mode(state: State<'_, Arc<AppState>>, active: bool, duration_min: u32) {
+fn set_focus_mode(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    active: bool,
+    duration_min: u32,
+) -> DashboardState {
     state.set_focus_mode(active, duration_min);
+    let dashboard = state.dashboard();
+    let _ = app.emit("fatigue-update", &dashboard);
+    dashboard
+}
+
+#[tauri::command]
+fn start_pomodoro(app: AppHandle, state: State<'_, Arc<AppState>>) -> DashboardState {
+    state.start_pomodoro();
+    if let Some(pomodoro) = state.take_pomodoro_notification() {
+        let _ = app.emit("pomodoro-notification", &pomodoro);
+    }
+    let dashboard = state.dashboard();
+    let _ = app.emit("fatigue-update", &dashboard);
+    dashboard
+}
+
+#[tauri::command]
+fn get_daily_summary(state: State<'_, Arc<AppState>>) -> DailySummary {
+    reports::build_daily_summary(&state.db)
+}
+
+#[tauri::command]
+fn save_email_settings(
+    state: State<'_, Arc<AppState>>,
+    settings: EmailSettings,
+    smtp_password: Option<String>,
+) -> Result<(), String> {
+    state.db.save_email_settings(&settings);
+    if let Some(pass) = smtp_password.filter(|p| !p.is_empty()) {
+        state.db.set_smtp_password(&pass);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn send_weekly_report_now(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<String, String> {
+    email::send_weekly_email(&app, &state.db)
+}
+
+#[tauri::command]
+fn save_weekly_report_file(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<String, String> {
+    let path = email::save_weekly_report(&app, &state.db)?;
+    Ok(path.display().to_string())
 }
 
 #[tauri::command]
@@ -116,9 +166,17 @@ fn start_background_services(app: &AppHandle, state: Arc<AppState>) {
 
                 if let Some(notification) = state.check_notification() {
                     let _ = app_handle.emit("break-notification", &notification);
+                } else if let Some(pomodoro) = state.take_pomodoro_notification() {
+                    let _ = app_handle.emit("pomodoro-notification", &pomodoro);
+                } else if let Some(summary) = state.check_daily_summary() {
+                    let toast = crate::notifications::build_daily_summary_toast(&summary);
+                    let _ = app_handle.emit("daily-summary", &summary);
+                    let _ = app_handle.emit("alert-hint", &toast);
                 } else if let Some(hint) = state.check_hint_toast() {
                     let _ = app_handle.emit("alert-hint", &hint);
                 }
+
+                let _ = state.maybe_send_weekly_email(&app_handle);
 
                 baseline_tick += 1;
                 if baseline_tick % 1800 == 0 {
@@ -179,6 +237,11 @@ pub fn run() {
             save_journal,
             get_journal,
             set_focus_mode,
+            start_pomodoro,
+            get_daily_summary,
+            save_email_settings,
+            send_weekly_report_now,
+            save_weekly_report_file,
             set_theme,
             set_retention_days,
             set_autostart,

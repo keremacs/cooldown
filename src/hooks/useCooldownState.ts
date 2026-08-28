@@ -5,8 +5,11 @@ import type {
   AlertToast,
   BreakNotification,
   CooldownEventPayload,
+  DailySummary,
   DashboardState,
+  EmailSettings,
   JournalEntry,
+  PomodoroNotification,
 } from "../types";
 
 const DEFAULT: DashboardState = {
@@ -19,6 +22,8 @@ const DEFAULT: DashboardState = {
   errors_last_hour: 0,
   keystrokes_per_min: 0,
   active_window: "",
+  active_app: "",
+  active_category: "other",
   notification_pending: false,
   snoozed_until: null,
   deep_work_score: 0,
@@ -36,6 +41,19 @@ const DEFAULT: DashboardState = {
   theme: "dark",
   retention_days: 90,
   autostart_enabled: true,
+  app_usage: [],
+  git_commits_today: 0,
+  email_settings: {
+    enabled: false,
+    to: "",
+    smtp_host: "",
+    smtp_port: 587,
+    smtp_user: "",
+    weekly_day: 0,
+    weekly_hour: 9,
+    daily_summary_hour: 18,
+    daily_summary_enabled: true,
+  },
 };
 
 export function useCooldownState() {
@@ -43,6 +61,8 @@ export function useCooldownState() {
   const [events, setEvents] = useState<CooldownEventPayload[]>([]);
   const [notification, setNotification] = useState<BreakNotification | null>(null);
   const [hint, setHint] = useState<AlertToast | null>(null);
+  const [pomodoro, setPomodoro] = useState<PomodoroNotification | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
 
   const refresh = useCallback(async () => {
@@ -77,6 +97,11 @@ export function useCooldownState() {
         setHint(e.payload);
         setTimeout(() => setHint(null), 8000);
       }),
+      listen<PomodoroNotification>("pomodoro-notification", (e) => {
+        setPomodoro(e.payload);
+        setTimeout(() => setPomodoro(null), 10000);
+      }),
+      listen<DailySummary>("daily-summary", (e) => setDailySummary(e.payload)),
     ];
 
     return () => {
@@ -105,11 +130,38 @@ export function useCooldownState() {
 
   const setFocusMode = useCallback(
     async (active: boolean, durationMin = 25) => {
-      await invoke("set_focus_mode", { active, duration_min: durationMin });
+      const dashboard = await invoke<DashboardState>("set_focus_mode", {
+        active,
+        durationMin,
+      });
+      setState(dashboard);
+    },
+    [],
+  );
+
+  const startPomodoro = useCallback(async () => {
+    const dashboard = await invoke<DashboardState>("start_pomodoro");
+    setState(dashboard);
+  }, []);
+
+  const saveEmailSettings = useCallback(
+    async (settings: EmailSettings, smtpPassword?: string) => {
+      await invoke("save_email_settings", {
+        settings,
+        smtpPassword: smtpPassword ?? null,
+      });
       refresh();
     },
     [refresh],
   );
+
+  const sendWeeklyReport = useCallback(async () => {
+    return invoke<string>("send_weekly_report_now");
+  }, []);
+
+  const saveWeeklyReportFile = useCallback(async () => {
+    return invoke<string>("save_weekly_report_file");
+  }, []);
 
   const setRetentionDays = useCallback(
     async (days: number) => {
@@ -132,11 +184,18 @@ export function useCooldownState() {
     events,
     notification,
     hint,
+    pomodoro,
+    dailySummary,
+    setDailySummary,
     journal,
     dismissNotification,
     snoozeNotification,
     saveJournal,
     setFocusMode,
+    startPomodoro,
+    saveEmailSettings,
+    sendWeeklyReport,
+    saveWeeklyReportFile,
     setRetentionDays,
     setAutostart,
     refresh,
