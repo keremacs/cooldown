@@ -25,6 +25,11 @@ Local-first cognitive load and burnout tracking for developers.
 | Benchmark mode (memory/CPU/uptime) | Settings |
 | Screen lock detection | Backend (Windows + macOS) |
 | Autostart at login | Settings (enabled by default) |
+| Pomodoro timer (25/5/15 min cycles) | **Settings** tab |
+| Daily summary notification | **Settings** tab + in-app toast |
+| Per-app usage list | **Screen Time** tab |
+| Git commit hook | `integrations/git/` → `.git/hooks/post-commit` |
+| Weekly email report (SMTP + HTML export) | **Settings** tab |
 | PowerShell hook | `integrations/shell/cooldown-hook.ps1` |
 
 ## Quick Start
@@ -68,3 +73,54 @@ function prompt { cooldown_report; "PS $($PWD)> " }
 - **≥ 90** — critical mandatory break (cannot snooze in UI)
 
 Focus mode suppresses alerts below 90.
+
+## Pomodoro & Focus
+
+**Settings → Focus Mode**
+
+- **Start 25 min / Start 50 min** — simple focus blocks; alerts suppressed below 90
+- **Start Pomodoro** — 25 min work → 5 min break; 15 min long break every 4 cycles
+- Phase transitions show in-app toast notifications
+- Focus time in IDE is tracked during work phases
+
+## Daily Summary
+
+End-of-day in-app toast with screen time, peak fatigue, git commits, errors, and top apps.
+
+**Settings → Daily Summary**
+
+- Toggle on/off and set notification hour (0–23, default 18:00)
+- Click **Save daily summary settings**
+
+## Weekly Email Report
+
+Optional SMTP report — data stays local until you send.
+
+**Settings → Weekly Email Report**
+
+- Configure recipient, SMTP host/port/user/password
+- Set automatic send day and hour, or use **Send report now**
+- **Save HTML report** writes a file to `%APPDATA%\com.cooldown.app\reports\` (Windows) or the app data dir on macOS/Linux
+
+## Git Commit Hook
+
+Tracks commits as **activity** (not errors). Commits appear in the daily summary and weekly report. Cooldown must be running.
+
+**Unix / Git Bash (per repo):**
+
+```bash
+cp integrations/git/post-commit .git/hooks/post-commit
+chmod +x .git/hooks/post-commit
+```
+
+**Windows (Git for Windows):**
+
+```powershell
+Copy-Item integrations/git/post-commit .git/hooks/post-commit -Force
+```
+
+See [integrations/git/README.md](integrations/git/README.md) for details.
+
+## Screen Time & App Usage
+
+**Screen Time** tab shows category breakdown (IDE, Browser, Communication, Other) plus a per-app usage list with time and category. Active window, app name, and category are shown at the bottom.
